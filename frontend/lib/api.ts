@@ -5,7 +5,7 @@
 import type { PlaylistData, MoodSliders } from "@/app/page"
 
 // API Base URL - 환경에 따라 변경
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://dailyapp.fun/"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://dailyapp.fun"
 
 /**
  * API 응답 타입 정의

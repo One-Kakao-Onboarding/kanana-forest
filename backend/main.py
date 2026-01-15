@@ -174,7 +174,7 @@ async def analyze_mood_with_gemini(image_path: str) -> dict:
     Gemini를 사용하여 이미지의 음악적 감성 수치 분석 (1단계)
     """
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-3-pro-preview')
 
         prompt = """[Role]
 당신은 이미지를 음악적 감성 수치로 변환하는 '비주얼-뮤직 매퍼(Visual-Music Mapper)'입니다.
@@ -216,7 +216,7 @@ async def recommend_songs_with_gemini(mood_data: dict) -> str:
     분석된 무드를 기반으로 곡 추천 (2단계)
     """
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-3-pro-preview')
 
         mood_summary = json.dumps(mood_data, ensure_ascii=False)
 
@@ -436,7 +436,8 @@ async def generate_playlist(
             mood_data=mood,
             analysis=analysis,
             session_id=session_id,
-            output_dir=TEMP_DIR
+            output_dir=TEMP_DIR,
+            image_path=str(image_path)
         )
         # Note: Image files are NOT added to temp_files - they persist for download
         # They will be cleaned up separately or on server restart

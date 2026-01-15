@@ -2,7 +2,7 @@
 Gemini 3 Pro Image Generation Module (Nano Banana Pro)
 
 이미지 분석 결과를 바탕으로 YouTube 썸네일과 LP 커버 이미지를 생성합니다.
-모델: gemini-3-pro-image-preview (Gemini 3 Pro Image / Nano Banana Pro)
+모델: gemini-3-pro-image-preview (Gemini 3 Pro Image)
 """
 
 import os
@@ -31,11 +31,31 @@ def extract_mood_keywords(mood_data: dict) -> str:
     return ", ".join(keywords)
 
 
+def load_image_as_part(image_path: str) -> types.Part:
+    """이미지 파일을 Gemini API Part로 변환"""
+    with open(image_path, "rb") as f:
+        image_bytes = f.read()
+
+    # 확장자로 mime type 결정
+    ext = Path(image_path).suffix.lower()
+    mime_types = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+    }
+    mime_type = mime_types.get(ext, "image/png")
+
+    return types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
+
+
 async def generate_youtube_thumbnail(
     mood_data: dict,
     analysis: str,
     session_id: str,
-    output_dir: Path
+    output_dir: Path,
+    image_path: Optional[str] = None
 ) -> Optional[str]:
     """
     YouTube 썸네일 이미지 생성 (16:9 비율)
@@ -45,6 +65,7 @@ async def generate_youtube_thumbnail(
         analysis: 이미지 분석 텍스트
         session_id: 세션 ID
         output_dir: 출력 디렉토리
+        image_path: 입력 이미지 경로 (선택사항)
 
     Returns:
         생성된 이미지 파일 경로 (실패시 None)
@@ -53,12 +74,26 @@ async def generate_youtube_thumbnail(
         client = get_genai_client()
         keywords = extract_mood_keywords(mood_data)
 
-        prompt = f"""Cinematic 16:9 YouTube thumbnail for a music playlist. A close-up portrait of a subject with a deep, serene emotional expression as the central highlight. Professional cinematic touch with a soft, slightly desaturated color grade and subtle film grain texture for a moody, calm atmosphere. In the dead center, the word "playlist" is written in an elegant, clean, understated white serif font. Directly underneath the word "playlist", include a thin, horizontal music playback progress bar or a subtle audio waveform visualizer that matches the exact width of the text. High quality, 4k resolution, photography style, evocative and eye-catching."""
+        prompt = f"""Based on this provided image, create a cinematic 16:9 YouTube thumbnail for a music playlist.
+Apply professional cinematic touch with a soft, slightly desaturated color grade and subtle film grain texture for a moody, calm atmosphere.
+In the dead center, add the word "playlist" in an elegant, clean, understated white serif font.
+Directly underneath the word "playlist", include a thin, horizontal music playback progress bar or a subtle audio waveform visualizer that matches the exact width of the text.
+High quality, 4k resolution, photography style, evocative and eye-catching.
+Keep the essence and character of the original image while applying these transformations."""
+
+        # 이미지와 프롬프트를 함께 전달
+        if image_path and Path(image_path).exists():
+            image_part = load_image_as_part(image_path)
+            contents = [image_part, prompt]
+            print(f"[ImageGen] YouTube thumbnail: Using input image {image_path}")
+        else:
+            contents = prompt
+            print(f"[ImageGen] YouTube thumbnail: No input image, generating from prompt only")
 
         response = await asyncio.to_thread(
             client.models.generate_content,
             model="gemini-3-pro-image-preview",
-            contents=prompt,
+            contents=contents,
             config=types.GenerateContentConfig(
                 response_modalities=['IMAGE']
             )
@@ -88,7 +123,8 @@ async def generate_lp_cover(
     mood_data: dict,
     analysis: str,
     session_id: str,
-    output_dir: Path
+    output_dir: Path,
+    image_path: Optional[str] = None
 ) -> Optional[str]:
     """
     LP 스타일 커버 이미지 생성 (1:1 비율)
@@ -98,6 +134,7 @@ async def generate_lp_cover(
         analysis: 이미지 분석 텍스트
         session_id: 세션 ID
         output_dir: 출력 디렉토리
+        image_path: 입력 이미지 경로 (선택사항)
 
     Returns:
         생성된 이미지 파일 경로 (실패시 None)
@@ -129,10 +166,19 @@ async def generate_lp_cover(
 이 모든 목업 구성 요소(슬리브와 빠져나온 레코드)는 아무런 무늬나 그림자가 없는 깨끗한 순백색(#FFFFFF) 배경 정중앙에 배치된다.
 부드럽고 자연스러운 스튜디오 조명을 사용하여 입체감을 준다."""
 
+        # 이미지와 프롬프트를 함께 전달
+        if image_path and Path(image_path).exists():
+            image_part = load_image_as_part(image_path)
+            contents = [image_part, prompt]
+            print(f"[ImageGen] LP cover: Using input image {image_path}")
+        else:
+            contents = prompt
+            print(f"[ImageGen] LP cover: No input image, generating from prompt only")
+
         response = await asyncio.to_thread(
             client.models.generate_content,
             model="gemini-3-pro-image-preview",
-            contents=prompt,
+            contents=contents,
             config=types.GenerateContentConfig(
                 response_modalities=['IMAGE']
             )
@@ -162,7 +208,8 @@ async def generate_playlist_images(
     mood_data: dict,
     analysis: str,
     session_id: str,
-    output_dir: Path
+    output_dir: Path,
+    image_path: Optional[str] = None
 ) -> dict:
     """
     YouTube 썸네일과 LP 커버를 동시에 생성
@@ -172,15 +219,18 @@ async def generate_playlist_images(
         analysis: 이미지 분석 텍스트
         session_id: 세션 ID
         output_dir: 출력 디렉토리
+        image_path: 입력 이미지 경로 (선택사항)
 
     Returns:
         {"youtube": path_or_none, "lp": path_or_none}
     """
     print(f"[{session_id}] Starting image generation...")
+    if image_path:
+        print(f"[{session_id}] Input image: {image_path}")
 
     # 두 이미지를 병렬로 생성
-    youtube_task = generate_youtube_thumbnail(mood_data, analysis, session_id, output_dir)
-    lp_task = generate_lp_cover(mood_data, analysis, session_id, output_dir)
+    youtube_task = generate_youtube_thumbnail(mood_data, analysis, session_id, output_dir, image_path)
+    lp_task = generate_lp_cover(mood_data, analysis, session_id, output_dir, image_path)
 
     youtube_path, lp_path = await asyncio.gather(youtube_task, lp_task)
 

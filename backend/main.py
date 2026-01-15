@@ -19,6 +19,9 @@ from dotenv import load_dotenv
 # Cookie manager for YouTube
 from cookie_manager import setup_browser_profile, refresh_cookies_if_needed
 
+# Image generator
+from image_generator import generate_playlist_images
+
 # Load environment variables
 load_dotenv()
 
@@ -427,6 +430,17 @@ async def generate_playlist(
             print(f"[{session_id}] Raw mood response: {mood_response}")
             raise HTTPException(status_code=500, detail=f"Failed to parse mood response: {str(e)}")
 
+        # 2.5. Generate playlist images (YouTube thumbnail + LP cover)
+        print(f"[{session_id}] Step 2.5: Generating playlist images...")
+        generated_images = await generate_playlist_images(
+            mood_data=mood,
+            analysis=analysis,
+            session_id=session_id,
+            output_dir=TEMP_DIR
+        )
+        # Note: Image files are NOT added to temp_files - they persist for download
+        # They will be cleaned up separately or on server restart
+
         # 3. Step 2: Get song recommendations based on mood
         print(f"[{session_id}] Step 2: Getting song recommendations...")
         songs_response = await recommend_songs_with_gemini(mood_data)
@@ -484,6 +498,13 @@ async def generate_playlist(
         background_tasks.add_task(cleanup_files, temp_files)
 
         # 7. Return JSON response with session_id for download
+        # Build images response
+        images_response = {}
+        if generated_images.get("youtube"):
+            images_response["youtube_thumbnail"] = f"/download/image/{session_id}?type=youtube"
+        if generated_images.get("lp"):
+            images_response["lp_cover"] = f"/download/image/{session_id}?type=lp"
+
         return {
             "success": True,
             "session_id": session_id,
@@ -496,7 +517,8 @@ async def generate_playlist(
                 "downloaded": successful_songs,
                 "failed": failed_songs
             },
-            "download_url": f"/download/{session_id}"
+            "download_url": f"/download/{session_id}",
+            "images": images_response
         }
 
     except HTTPException:
@@ -531,6 +553,32 @@ async def download_playlist(session_id: str, background_tasks: BackgroundTasks):
         path=str(file_path),
         filename=f"playlist_{session_id}.mp3",
         media_type="audio/mpeg"
+    )
+
+
+@app.get("/download/image/{session_id}")
+async def download_image(session_id: str, type: str, background_tasks: BackgroundTasks):
+    """
+    생성된 이미지 다운로드
+
+    Args:
+        session_id: 세션 ID
+        type: 이미지 타입 ("youtube" 또는 "lp")
+    """
+    if type == "youtube":
+        file_path = TEMP_DIR / f"{session_id}_youtube.png"
+    elif type == "lp":
+        file_path = TEMP_DIR / f"{session_id}_lp.png"
+    else:
+        raise HTTPException(status_code=400, detail="Invalid image type. Use 'youtube' or 'lp'")
+
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Image not found or expired")
+
+    return FileResponse(
+        path=str(file_path),
+        filename=f"{type}_{session_id}.png",
+        media_type="image/png"
     )
 
 

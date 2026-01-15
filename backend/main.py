@@ -476,8 +476,19 @@ async def generate_playlist(
             success = await download_audio_by_search(title, artist, output_file)
             if success and os.path.exists(f"{output_file}.mp3"):
                 downloaded_files.append(f"{output_file}.mp3")
-                successful_songs.append(song)
-                print(f"[{session_id}] Successfully downloaded: {title} by {artist}")
+
+                # 곡 길이 측정
+                audio = await asyncio.to_thread(AudioSegment.from_mp3, f"{output_file}.mp3")
+                duration_ms = len(audio)
+                duration_sec = duration_ms / 1000
+
+                song_with_duration = {
+                    **song,
+                    "duration_ms": duration_ms,
+                    "duration_sec": round(duration_sec, 2)
+                }
+                successful_songs.append(song_with_duration)
+                print(f"[{session_id}] Successfully downloaded: {title} by {artist} ({duration_sec:.2f}s)")
             else:
                 failed_songs.append(song)
                 print(f"[{session_id}] Failed to download: {title} by {artist}")
@@ -487,12 +498,22 @@ async def generate_playlist(
 
         print(f"[{session_id}] Downloaded {len(downloaded_files)}/{len(songs)} audio files")
 
+        # 각 곡의 시작 시간 계산
+        current_start_ms = 0
+        for song in successful_songs:
+            song["start_time_ms"] = current_start_ms
+            song["start_time_sec"] = round(current_start_ms / 1000, 2)
+            current_start_ms += song["duration_ms"]
+
+        total_duration_ms = current_start_ms
+        total_duration_sec = round(total_duration_ms / 1000, 2)
+
         # 5. Step 4: Merge audio files
         print(f"[{session_id}] Merging audio files...")
         merged_path = str(TEMP_DIR / f"playlist_{session_id}.mp3")
 
         await merge_audio_files(downloaded_files, merged_path)
-        print(f"[{session_id}] Merge complete: {merged_path}")
+        print(f"[{session_id}] Merge complete: {merged_path} (total: {total_duration_sec}s)")
 
         # 6. Cleanup individual audio files (keep merged file for download)
         background_tasks.add_task(cleanup_files, temp_files)
@@ -512,6 +533,10 @@ async def generate_playlist(
             "mood": mood,
             "analysis": analysis,
             "reason": reason,
+            "total_duration": {
+                "ms": total_duration_ms,
+                "sec": total_duration_sec
+            },
             "songs": {
                 "requested": songs,
                 "downloaded": successful_songs,

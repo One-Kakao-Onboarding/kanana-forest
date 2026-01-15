@@ -4,6 +4,11 @@ import { useEffect, useState } from "react"
 import { Music } from "lucide-react"
 import Image from "next/image"
 import type { PlaylistData } from "@/app/page"
+import MiniGame from "./mini-game"
+import Match3Game from "./match3-game"
+import JumpGame from "./jump-game"
+
+type GameType = "dodge" | "match3" | "jump"
 
 interface GeneratingPageProps {
   imageUrl: string
@@ -96,6 +101,8 @@ function CuteMascot({ className = "" }: { className?: string }) {
 export default function GeneratingPage({ imageUrl, onComplete }: GeneratingPageProps) {
   const [currentStep, setCurrentStep] = useState(0)
   const [progress, setProgress] = useState(0)
+  const [gameScore, setGameScore] = useState(0)
+  const [selectedGame, setSelectedGame] = useState<GameType>("dodge")
 
   useEffect(() => {
     let stepIndex = 0
@@ -154,66 +161,91 @@ export default function GeneratingPage({ imageUrl, onComplete }: GeneratingPageP
       </header>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col items-center justify-center relative z-10">
-        <div className="relative w-72 mb-8">
-          {/* Main card */}
-          <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#4d7cfe] via-[#6366f1] to-[#a855f7] p-1 shadow-2xl">
-            <div className="rounded-[20px] overflow-hidden bg-gradient-to-br from-[#4d7cfe] to-[#a855f7] aspect-square">
-              {/* User's image */}
-              <img
-                src={imageUrl || "/placeholder.svg"}
-                alt="Uploaded"
-                className="w-full h-full object-cover opacity-60"
-              />
-
-              {/* Overlay with mascot */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <CuteMascot className="w-28 h-28 drop-shadow-xl animate-bounce" />
-                <p className="text-white font-bold text-lg mt-4 drop-shadow-lg text-center px-4">
-                  플레이리스트를
-                  <br />
-                  만들고 있어요
-                </p>
+      <div className="flex-1 flex flex-col items-center justify-center relative z-10 gap-4">
+        {/* Progress section */}
+        <div className="w-full max-w-xs space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-gradient-to-br from-[#4d7cfe] to-[#a855f7] p-0.5 shadow-lg flex-shrink-0">
+              <div className="w-full h-full rounded-[14px] overflow-hidden">
+                <img
+                  src={imageUrl || "/placeholder.svg"}
+                  alt="Uploaded"
+                  className="w-full h-full object-cover"
+                />
               </div>
-
-              {/* Decorative blobs */}
-              <div className="absolute top-4 left-4 w-12 h-12 rounded-full bg-[#fbbf24] opacity-80" />
-              <div className="absolute bottom-8 right-6 w-8 h-8 rounded-full bg-primary opacity-90" />
-              <div className="absolute top-1/3 right-4 w-6 h-6 rounded-full bg-[#f472b6] opacity-70" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-foreground font-bold animate-pulse mb-2">
+                {STEPS[currentStep]?.label || "완료 중..."}
+              </p>
+              <div className="h-2 bg-secondary rounded-full overflow-hidden shadow-inner">
+                <div
+                  className="h-full bg-gradient-to-r from-primary to-[#4ade80] transition-all duration-300 ease-out rounded-full"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="w-full max-w-xs space-y-4">
-          <div className="h-3 bg-secondary rounded-full overflow-hidden shadow-inner">
-            <div
-              className="h-full bg-gradient-to-r from-primary to-[#4ade80] transition-all duration-300 ease-out rounded-full"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-
-          <p className="text-center text-sm text-foreground font-bold animate-pulse">
-            {STEPS[currentStep]?.label || "완료 중..."}
-          </p>
-
-          <div className="flex justify-center gap-2 pt-2">
+          <div className="flex justify-center gap-2">
             {STEPS.map((step, index) => (
               <div
                 key={step.id}
-                className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${
                   index <= currentStep ? "bg-primary shadow-md shadow-primary/50" : "bg-secondary"
                 }`}
               />
             ))}
           </div>
         </div>
+
+        {/* Game Selection */}
+        <div className="flex gap-2 mb-2">
+          <button
+            onClick={() => { setSelectedGame("dodge"); setGameScore(0); }}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+              selectedGame === "dodge"
+                ? "bg-primary text-primary-foreground shadow-md"
+                : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+            }`}
+          >
+            🏃 피하기
+          </button>
+          <button
+            onClick={() => { setSelectedGame("match3"); setGameScore(0); }}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+              selectedGame === "match3"
+                ? "bg-primary text-primary-foreground shadow-md"
+                : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+            }`}
+          >
+            🎵 3매치
+          </button>
+          <button
+            onClick={() => { setSelectedGame("jump"); setGameScore(0); }}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+              selectedGame === "jump"
+                ? "bg-primary text-primary-foreground shadow-md"
+                : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+            }`}
+          >
+            🏃 점프
+          </button>
+        </div>
+
+        {/* Mini Game */}
+        {selectedGame === "dodge" && <MiniGame onScoreChange={setGameScore} />}
+        {selectedGame === "match3" && <Match3Game onScoreChange={setGameScore} />}
+        {selectedGame === "jump" && <JumpGame onScoreChange={setGameScore} />}
       </div>
 
       {/* Bottom text */}
       <p className="text-center text-xs text-muted-foreground relative z-10">
-        사진의 분위기를 분석하여
-        <br />
-        최적의 플레이리스트를 만들고 있어요
+        {gameScore > 0 ? (
+          <>현재 점수: <span className="font-bold text-primary">{gameScore}점</span> - 조금만 더 기다려주세요!</>
+        ) : (
+          <>사진의 분위기를 분석하여<br />최적의 플레이리스트를 만들고 있어요</>
+        )}
       </p>
     </div>
   )

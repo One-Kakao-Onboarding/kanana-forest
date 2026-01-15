@@ -1,0 +1,24 @@
+services:
+  fastapi:
+    build: .
+    image: cheesecrust/ai-music-curator:latest
+    container_name: ai-music-curator
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}
+    env_file:
+      - .env
+    volumes:
+      - ./temp:/app/temp
+      # YouTube 쿠키 파일 마운트 (수동 추출한 쿠키 사용)
+      # 호스트의 ./cookies/cookies.txt 파일을 컨테이너의 /app/cookies/cookies.txt로 마운트
+      - ./cookies:/app/cookies
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s

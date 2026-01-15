@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useRef, useState } from "react"
 import { Upload, ImageIcon, Music, Sparkles } from "lucide-react"
+import { resizeImageToTargetSize } from "@/lib/image-utils"
 import Image from "next/image"
 
 interface LandingPageProps {
@@ -28,13 +29,20 @@ export default function LandingPage({ onImageUpload }: LandingPageProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
 
-  const handleFileSelect = (file: File) => {
+  const handleFileSelect = async (file: File) => {
     if (file && file.type.startsWith("image/")) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        onImageUpload(e.target?.result as string)
+      try {
+        const resizedDataURL = await resizeImageToTargetSize(file, 100)
+        onImageUpload(resizedDataURL)
+      } catch (error) {
+        console.error("이미지 리사이즈 실패:", error)
+        // 폴백: 원본 사용
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          onImageUpload(e.target?.result as string)
+        }
+        reader.readAsDataURL(file)
       }
-      reader.readAsDataURL(file)
     }
   }
 

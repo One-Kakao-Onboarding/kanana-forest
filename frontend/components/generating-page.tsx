@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Loader2 } from "lucide-react"
+import { Music } from "lucide-react"
+import Image from "next/image"
 import type { PlaylistData } from "@/app/page"
 
 interface GeneratingPageProps {
@@ -88,6 +89,10 @@ const generateMockPlaylistData = (): PlaylistData => ({
   },
 })
 
+function CuteMascot({ className = "" }: { className?: string }) {
+  return <Image src="/mascot.png" alt="Pic-Tune 마스코트" width={112} height={112} className={className} />
+}
+
 export default function GeneratingPage({ imageUrl, onComplete }: GeneratingPageProps) {
   const [currentStep, setCurrentStep] = useState(0)
   const [progress, setProgress] = useState(0)
@@ -134,71 +139,69 @@ export default function GeneratingPage({ imageUrl, onComplete }: GeneratingPageP
   }, [imageUrl, onComplete])
 
   return (
-    <div className="min-h-screen flex flex-col px-5 py-8">
+    <div className="min-h-screen flex flex-col px-5 py-8 bg-background relative overflow-hidden">
+      <div className="absolute top-10 right-0 w-64 h-64 bg-[#4d7cfe] rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob" />
+      <div className="absolute bottom-20 left-0 w-56 h-56 bg-[#a855f7] rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000" />
+
       {/* Header */}
-      <header className="flex items-center justify-center">
-        <span className="text-lg font-bold text-foreground">플레이리스트 생성 중</span>
+      <header className="flex items-center justify-center relative z-10">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/30">
+            <Music className="w-4 h-4 text-primary-foreground" />
+          </div>
+          <span className="text-lg font-black text-primary">생성 중...</span>
+        </div>
       </header>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col items-center justify-center">
-        <div className="relative w-72 h-72 mb-8">
-          {/* LP 외곽 원반 */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 shadow-2xl">
-            {/* LP 그루브 라인들 */}
-            <div className="absolute inset-2 rounded-full border border-zinc-700/30" />
-            <div className="absolute inset-4 rounded-full border border-zinc-700/20" />
-            <div className="absolute inset-6 rounded-full border border-zinc-700/30" />
-            <div className="absolute inset-8 rounded-full border border-zinc-700/20" />
-            <div className="absolute inset-10 rounded-full border border-zinc-700/30" />
-            <div className="absolute inset-12 rounded-full border border-zinc-700/20" />
-            <div className="absolute inset-14 rounded-full border border-zinc-700/30" />
-            <div className="absolute inset-16 rounded-full border border-zinc-700/20" />
-          </div>
+      <div className="flex-1 flex flex-col items-center justify-center relative z-10">
+        <div className="relative w-72 mb-8">
+          {/* Main card */}
+          <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#4d7cfe] via-[#6366f1] to-[#a855f7] p-1 shadow-2xl">
+            <div className="rounded-[20px] overflow-hidden bg-gradient-to-br from-[#4d7cfe] to-[#a855f7] aspect-square">
+              {/* User's image */}
+              <img
+                src={imageUrl || "/placeholder.svg"}
+                alt="Uploaded"
+                className="w-full h-full object-cover opacity-60"
+              />
 
-          {/* 중앙 라벨 (업로드한 이미지) */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-zinc-700 shadow-inner animate-[spin_4s_linear_infinite]">
-              <img src={imageUrl || "/placeholder.svg"} alt="Uploaded" className="w-full h-full object-cover" />
+              {/* Overlay with mascot */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <CuteMascot className="w-28 h-28 drop-shadow-xl animate-bounce" />
+                <p className="text-white font-bold text-lg mt-4 drop-shadow-lg text-center px-4">
+                  플레이리스트를
+                  <br />
+                  만들고 있어요
+                </p>
+              </div>
+
+              {/* Decorative blobs */}
+              <div className="absolute top-4 left-4 w-12 h-12 rounded-full bg-[#fbbf24] opacity-80" />
+              <div className="absolute bottom-8 right-6 w-8 h-8 rounded-full bg-primary opacity-90" />
+              <div className="absolute top-1/3 right-4 w-6 h-6 rounded-full bg-[#f472b6] opacity-70" />
             </div>
           </div>
-
-          {/* 중앙 홀 */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-4 h-4 rounded-full bg-zinc-900 border-2 border-zinc-600" />
-          </div>
-
-          {/* 로딩 오버레이 */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-14 h-14 rounded-full bg-background/80 backdrop-blur flex items-center justify-center shadow-lg">
-              <Loader2 className="w-7 h-7 text-primary animate-spin" />
-            </div>
-          </div>
-
-          {/* LP 반사광 효과 */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none" />
         </div>
 
-        {/* Progress */}
         <div className="w-full max-w-xs space-y-4">
-          <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+          <div className="h-3 bg-secondary rounded-full overflow-hidden shadow-inner">
             <div
-              className="h-full bg-primary transition-all duration-300 ease-out rounded-full"
+              className="h-full bg-gradient-to-r from-primary to-[#4ade80] transition-all duration-300 ease-out rounded-full"
               style={{ width: `${progress}%` }}
             />
           </div>
 
-          <p className="text-center text-sm text-foreground font-medium animate-pulse">
+          <p className="text-center text-sm text-foreground font-bold animate-pulse">
             {STEPS[currentStep]?.label || "완료 중..."}
           </p>
 
-          {/* Steps indicator */}
-          <div className="flex justify-center gap-2 pt-4">
+          <div className="flex justify-center gap-2 pt-2">
             {STEPS.map((step, index) => (
               <div
                 key={step.id}
-                className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                  index <= currentStep ? "bg-primary" : "bg-secondary"
+                className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                  index <= currentStep ? "bg-primary shadow-md shadow-primary/50" : "bg-secondary"
                 }`}
               />
             ))}
@@ -207,7 +210,7 @@ export default function GeneratingPage({ imageUrl, onComplete }: GeneratingPageP
       </div>
 
       {/* Bottom text */}
-      <p className="text-center text-xs text-muted-foreground">
+      <p className="text-center text-xs text-muted-foreground relative z-10">
         사진의 분위기를 분석하여
         <br />
         최적의 플레이리스트를 만들고 있어요

@@ -22,6 +22,7 @@ export interface PlaylistData {
   tracks: { title: string; artist: string; reason: string; startTime: number }[]
   images: { type: string; url: string }[]
   keywordExplanation: string
+  playlistReason?: string // 플레이리스트 추천 이유
   audioUrl: string
   totalDuration: number
   moodSliders: MoodSliders // 무드 슬라이더 값 추가

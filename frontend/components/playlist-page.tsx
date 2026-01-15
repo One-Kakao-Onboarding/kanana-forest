@@ -78,6 +78,8 @@ export default function PlaylistPage({ data, originalImage, onRegenerate, onRese
   const [showTrackList, setShowTrackList] = useState(false)
   const [showMoodEditor, setShowMoodEditor] = useState(false)
   const [isHovering, setIsHovering] = useState(false)
+  const [isProgressBarExpanded, setIsProgressBarExpanded] = useState(false)
+  const progressBarTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [currentTime, setCurrentTime] = useState(0)
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
   const [moodValues, setMoodValues] = useState<MoodSliders>(data.moodSliders)
@@ -163,14 +165,25 @@ export default function PlaylistPage({ data, originalImage, onRegenerate, onRese
     handleProgressSeek(e)
   }
 
+  const handleImageAreaClick = () => {
+    if (progressBarTimeoutRef.current) {
+      clearTimeout(progressBarTimeoutRef.current)
+    }
+    setIsProgressBarExpanded(true)
+    progressBarTimeoutRef.current = setTimeout(() => {
+      setIsProgressBarExpanded(false)
+    }, 1000)
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <audio ref={audioRef} src={data.audioUrl} preload="metadata" />
+      <audio ref={audioRef} src={data.audioUrl} preload="auto" />
 
       <div
         className="sticky top-0 z-40 w-full aspect-video bg-card overflow-hidden group"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
+        onClick={handleImageAreaClick}
       >
         <img
           src={images[currentImageIndex].url || "/placeholder.svg"}
@@ -220,12 +233,15 @@ export default function PlaylistPage({ data, originalImage, onRegenerate, onRese
         {/* Progress bar */}
         <div
           ref={progressBarRef}
-          className="absolute bottom-0 left-0 right-0 h-1 bg-white/30 z-20 cursor-pointer group-hover:h-2 transition-all"
-          onClick={handleProgressSeek}
+          className={`absolute bottom-0 left-0 right-0 h-1 bg-white/30 z-20 cursor-pointer group-hover:h-2 transition-all ${isProgressBarExpanded ? 'h-2' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            handleProgressSeek(e)
+          }}
           onMouseMove={handleProgressDrag}
         >
           <div className="h-full bg-primary relative transition-all" style={{ width: `${progress}%` }}>
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full shadow-md scale-0 group-hover:scale-100 transition-transform" />
+            <div className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-3 h-3 bg-primary rounded-full shadow-md group-hover:scale-100 transition-transform ${isProgressBarExpanded ? 'scale-100' : 'scale-0'}`} />
           </div>
         </div>
 
@@ -308,6 +324,13 @@ export default function PlaylistPage({ data, originalImage, onRegenerate, onRese
             <h3 className="text-sm font-bold text-foreground mb-2">왜 이런 키워드가 나왔을까요?</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">{data.keywordExplanation}</p>
           </div>
+
+          {data.playlistReason && (
+            <div className="p-4 rounded-2xl bg-card">
+              <h3 className="text-sm font-bold text-foreground mb-2">이 플레이리스트를 추천하는 이유</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">{data.playlistReason}</p>
+            </div>
+          )}
 
           <div className="p-4 rounded-2xl bg-card">
             <div className="flex items-center gap-2 mb-3">

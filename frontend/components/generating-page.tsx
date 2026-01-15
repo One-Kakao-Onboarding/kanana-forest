@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Music } from "lucide-react"
 import Image from "next/image"
 import type { PlaylistData } from "@/app/page"
 import MiniGame from "./mini-game"
 import Match3Game from "./match3-game"
 import JumpGame from "./jump-game"
+import { generatePlaylist } from "@/lib/api"
 
 type GameType = "dodge" | "match3" | "jump"
 
@@ -16,14 +17,14 @@ interface GeneratingPageProps {
 }
 
 const STEPS = [
-  { id: 1, label: "색감을 분석하고 있어요", duration: 1500 },
-  { id: 2, label: "무드 키워드를 추출하고 있어요", duration: 2000 },
-  { id: 3, label: "어울리는 음악을 찾고 있어요", duration: 2500 },
-  { id: 4, label: "커버 이미지를 생성하고 있어요", duration: 2000 },
-  { id: 5, label: "플레이리스트를 완성하고 있어요", duration: 1500 },
+  { id: 1, label: "색감을 분석하고 있어요", duration: 10000 },
+  { id: 2, label: "무드 키워드를 추출하고 있어요", duration: 10000 },
+  { id: 3, label: "어울리는 음악을 찾고 있어요", duration: 10000 },
+  { id: 4, label: "커버 이미지를 생성하고 있어요", duration: 10000 },
+  { id: 5, label: "플레이리스트를 완성하고 있어요", duration: 10000 },
 ]
 
-// Mock data generator
+// Mock data generator (API 실패시 폴백용)
 const generateMockPlaylistData = (): PlaylistData => ({
   title: "비 오는 오후의 잔잔한 재즈",
   keywords: [
@@ -35,6 +36,8 @@ const generateMockPlaylistData = (): PlaylistData => ({
   ],
   keywordExplanation:
     "이 사진은 전체적으로 따뜻한 색온도와 낮은 채도를 가지고 있어요. 창가의 부드러운 조명이 만드는 아늑한 분위기와 약간 흐릿한 배경이 몽환적인 느낌을 자아내요. 비 오는 날의 창가 카페에서 느낄 수 있는 잔잔하고 감성적인 무드가 느껴집니다.",
+  playlistReason:
+    "비 오는 날의 잔잔한 분위기와 따뜻한 색감이 재즈 음악과 완벽하게 어울립니다. 차분한 피아노와 감성적인 보컬이 이 순간을 더욱 특별하게 만들어줄 거예요.",
   tracks: [
     {
       title: "Autumn Leaves",
@@ -54,28 +57,6 @@ const generateMockPlaylistData = (): PlaylistData => ({
       reason: "따뜻하고 감성적인 보컬이 색온도와 매칭돼요",
       startTime: 360,
     },
-    { title: "Take Five", artist: "Dave Brubeck", reason: "도시적인 세련됨이 느껴지는 리듬감", startTime: 540 },
-    {
-      title: "Round Midnight",
-      artist: "Thelonious Monk",
-      reason: "어두운 톤과 어울리는 밤 감성의 재즈",
-      startTime: 720,
-    },
-    { title: "Misty", artist: "Erroll Garner", reason: "몽환적인 분위기의 클래식 재즈 넘버", startTime: 900 },
-    {
-      title: "Georgia On My Mind",
-      artist: "Ray Charles",
-      reason: "따뜻하고 향수적인 감성을 전달해요",
-      startTime: 1080,
-    },
-    {
-      title: "Summertime",
-      artist: "Ella Fitzgerald",
-      reason: "부드러운 보컬이 잔잔한 무드와 어울려요",
-      startTime: 1260,
-    },
-    { title: "Body and Soul", artist: "John Coltrane", reason: "깊은 감성의 색소폰 연주", startTime: 1440 },
-    { title: "The Girl from Ipanema", artist: "Stan Getz", reason: "가벼우면서도 감성적인 보사노바", startTime: 1620 },
   ],
   images: [
     { type: "original", url: "" },
@@ -83,7 +64,7 @@ const generateMockPlaylistData = (): PlaylistData => ({
     { type: "lp", url: "/lp-vinyl-record-cover-jazz-minimalist.jpg" },
   ],
   audioUrl: "/playlist.mp3",
-  totalDuration: 1800,
+  totalDuration: 540,
   moodSliders: {
     hipToCalm: 75,
     excitedToRelaxed: 80,
@@ -103,16 +84,46 @@ export default function GeneratingPage({ imageUrl, onComplete }: GeneratingPageP
   const [progress, setProgress] = useState(0)
   const [gameScore, setGameScore] = useState(0)
   const [selectedGame, setSelectedGame] = useState<GameType>("dodge")
+  const apiResultRef = useRef<PlaylistData | null>(null)
+  const animationDoneRef = useRef(false)
 
   useEffect(() => {
     let stepIndex = 0
     let progressInterval: NodeJS.Timeout
+    let isCancelled = false
 
-    const runStep = () => {
-      if (stepIndex >= STEPS.length) {
+    // API 호출 (애니메이션과 병렬로 실행)
+    const callApi = async () => {
+      try {
+        console.log("Calling generatePlaylist API...")
+        const result = await generatePlaylist(imageUrl)
+        console.log("API result received:", result)
+        apiResultRef.current = result
+      } catch (error) {
+        console.error("API call failed, using mock data:", error)
+        // API 실패시 Mock 데이터 사용
         const mockData = generateMockPlaylistData()
         mockData.images[0].url = imageUrl
-        onComplete(mockData)
+        apiResultRef.current = mockData
+      }
+
+      // API 완료 후, 애니메이션도 완료되었으면 onComplete 호출
+      if (animationDoneRef.current && !isCancelled) {
+        onComplete(apiResultRef.current!)
+      }
+    }
+
+    // API 호출 시작
+    callApi()
+
+    // 애니메이션 실행
+    const runStep = () => {
+      if (stepIndex >= STEPS.length) {
+        animationDoneRef.current = true
+        // 애니메이션 완료 후, API도 완료되었으면 onComplete 호출
+        if (apiResultRef.current && !isCancelled) {
+          onComplete(apiResultRef.current)
+        }
         return
       }
 
@@ -141,6 +152,7 @@ export default function GeneratingPage({ imageUrl, onComplete }: GeneratingPageP
     runStep()
 
     return () => {
+      isCancelled = true
       clearInterval(progressInterval)
     }
   }, [imageUrl, onComplete])

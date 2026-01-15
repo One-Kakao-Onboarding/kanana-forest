@@ -121,6 +121,7 @@ def parse_gemini_json(gemini_response: str, session_id: str = "") -> dict:
     print(f"[{session_id}] Attempting manual regex extraction...")
     try:
         emotions = []
+        playlist_title = ""
         reason = ""
         songs = []
 
@@ -129,6 +130,11 @@ def parse_gemini_json(gemini_response: str, session_id: str = "") -> dict:
         if emotions_match:
             emotions_str = emotions_match.group(1)
             emotions = re.findall(r'"([^"]+)"', emotions_str)
+
+        # Extract playlist_title
+        title_match = re.search(r'"playlist_title"\s*:\s*"([^"]*)"', json_str)
+        if title_match:
+            playlist_title = title_match.group(1)
 
         # Extract reason
         reason_match = re.search(r'"reason"\s*:\s*"([^"]*(?:[^"\\]|\\.)*)"|"reason"\s*:\s*"([^"]*)"', json_str)
@@ -139,13 +145,21 @@ def parse_gemini_json(gemini_response: str, session_id: str = "") -> dict:
         songs_match = re.search(r'"songs"\s*:\s*\[(.*?)\]', json_str, re.DOTALL)
         if songs_match:
             songs_str = songs_match.group(1)
-            song_pattern = r'\{\s*"title"\s*:\s*"([^"]*)"\s*,\s*"artist"\s*:\s*"([^"]*)"\s*\}'
-            for match in re.finditer(song_pattern, songs_str):
-                songs.append({"title": match.group(1), "artist": match.group(2)})
+            # Try pattern with reason first
+            song_pattern_with_reason = r'\{\s*"title"\s*:\s*"([^"]*)"\s*,\s*"artist"\s*:\s*"([^"]*)"\s*,\s*"reason"\s*:\s*"([^"]*)"\s*\}'
+            matches = list(re.finditer(song_pattern_with_reason, songs_str))
+            if matches:
+                for match in matches:
+                    songs.append({"title": match.group(1), "artist": match.group(2), "reason": match.group(3)})
+            else:
+                # Fallback to pattern without reason
+                song_pattern = r'\{\s*"title"\s*:\s*"([^"]*)"\s*,\s*"artist"\s*:\s*"([^"]*)"\s*\}'
+                for match in re.finditer(song_pattern, songs_str):
+                    songs.append({"title": match.group(1), "artist": match.group(2), "reason": ""})
 
         if songs:
             print(f"[{session_id}] Manual extraction succeeded: {len(songs)} songs found")
-            return {"emotions": emotions, "reason": reason, "songs": songs}
+            return {"emotions": emotions, "playlist_title": playlist_title, "reason": reason, "songs": songs}
     except Exception as e:
         print(f"[{session_id}] Manual extraction failed: {str(e)}")
 
@@ -210,15 +224,17 @@ async def recommend_songs_with_gemini(mood_data: dict) -> str:
 {mood_summary}
 
 [Task]
-위 감성 분석 결과를 바탕으로 어울리는 곡 3개를 추천하세요.
+위 감성 분석 결과를 바탕으로 어울리는 곡 3개를 추천하고, 플레이리스트의 제목을 지어주세요.
 
 [Output Format]
 반드시 아래 JSON 형식으로만 응답하세요:
-{{"reason": "이 플레이리스트를 추천하는 이유 1-2문장", "songs": [{{"title": "노래제목1", "artist": "가수1"}}, {{"title": "노래제목2", "artist": "가수2"}}, {{"title": "노래제목3", "artist": "가수3"}}]}}
+{{"playlist_title": "감성을 담은 창의적인 플레이리스트 제목", "reason": "이 플레이리스트를 추천하는 이유 1-2문장", "songs": [{{"title": "노래제목1", "artist": "가수1", "reason": "이 곡을 선정한 이유 1문장"}}, {{"title": "노래제목2", "artist": "가수2", "reason": "이 곡을 선정한 이유 1문장"}}, {{"title": "노래제목3", "artist": "가수3", "reason": "이 곡을 선정한 이유 1문장"}}]}}
 
 규칙:
+- playlist_title은 이미지의 분위기를 반영한 감성적이고 창의적인 제목 (한국어)
 - reason은 한국어로 작성
 - songs는 정확히 3곡
+- 각 곡의 reason은 해당 곡이 이미지 감성에 어울리는 구체적인 이유를 설명
 - 다른 텍스트 없이 JSON만 반환
 - 문자열 내에 따옴표 사용 금지
 - 실제 존재하는 곡만 추천"""
@@ -419,8 +435,10 @@ async def generate_playlist(
         # Parse songs JSON response
         try:
             songs_data = parse_gemini_json(songs_response, session_id)
+            playlist_title = songs_data.get("playlist_title", "AI 큐레이션 플레이리스트")
             reason = songs_data.get("reason", "")
             songs = songs_data.get("songs", [])
+            print(f"[{session_id}] Playlist Title: {playlist_title}")
             print(f"[{session_id}] Reason: {reason}")
             print(f"[{session_id}] Songs: {songs}")
         except (json.JSONDecodeError, ValueError) as e:
@@ -469,6 +487,7 @@ async def generate_playlist(
         return {
             "success": True,
             "session_id": session_id,
+            "playlist_title": playlist_title,
             "mood": mood,
             "analysis": analysis,
             "reason": reason,
